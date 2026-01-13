@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type GameState = 'menu' | 'playing' | 'paused' | 'gameOver';
+type GameState = 'menu' | 'playing' | 'paused' | 'gameOver' | 'settings';
 type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface Paddle {
@@ -31,6 +31,8 @@ export default function TableTennisGame() {
   const [playerScore, setPlayerScore] = useState(0);
   const [aiScore, setAiScore] = useState(0);
   const [winner, setWinner] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -347,6 +349,28 @@ export default function TableTennisGame() {
     setWinner(null);
   };
 
+  const restartGame = () => {
+    setPlayerScore(0);
+    setAiScore(0);
+    setWinner(null);
+    gameRef.current.serveCount = 0;
+    gameRef.current.serveTurn = 'player';
+    setGameState('playing');
+  };
+
+  const openSettings = () => {
+    setShowSettings(true);
+  };
+
+  const closeSettings = () => {
+    setShowSettings(false);
+  };
+
+  const endGame = () => {
+    setGameState('gameOver');
+    setWinner(playerScore > aiScore ? 'Player' : 'AI');
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4">
@@ -423,19 +447,31 @@ export default function TableTennisGame() {
           {/* Paused Overlay */}
           {gameState === 'paused' && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
-              <h2 className="text-4xl font-bold text-white mb-8">Paused</h2>
-              <div className="space-y-4">
+              <h2 className="text-4xl font-bold text-white mb-8">⏸ Paused</h2>
+              <div className="space-y-4 w-64">
                 <button
                   onClick={resumeGame}
                   className="px-12 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-bold text-xl hover:scale-105 transition-transform block w-full"
                 >
-                  Resume
+                  ▶️ Resume
+                </button>
+                <button
+                  onClick={restartGame}
+                  className="px-12 py-4 bg-blue-500 text-white rounded-lg font-bold text-xl hover:bg-blue-600 transition-colors block w-full"
+                >
+                  🔄 Restart
+                </button>
+                <button
+                  onClick={openSettings}
+                  className="px-12 py-4 bg-purple-500 text-white rounded-lg font-bold text-xl hover:bg-purple-600 transition-colors block w-full"
+                >
+                  ⚙️ Settings
                 </button>
                 <button
                   onClick={backToMenu}
                   className="px-12 py-4 bg-gray-700 text-white rounded-lg font-bold text-xl hover:bg-gray-600 transition-colors block w-full"
                 >
-                  Main Menu
+                  🏠 Main Menu
                 </button>
               </div>
             </div>
@@ -468,27 +504,100 @@ export default function TableTennisGame() {
           )}
         </div>
 
-        {/* Controls */}
+        {/* In-Game Controls */}
         {gameState === 'playing' && (
-          <div className="mt-4 flex justify-center gap-4">
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
             <button
               onClick={() => setGameState('paused')}
-              className="px-6 py-2 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors"
+              className="px-6 py-2 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors shadow-lg"
             >
-              Pause
+              ⏸ Pause
             </button>
             <button
-              onClick={backToMenu}
-              className="px-6 py-2 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              onClick={restartGame}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors shadow-lg"
             >
-              Quit
+              🔄 Restart
             </button>
+            <button
+              onClick={openSettings}
+              className="px-6 py-2 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 transition-colors shadow-lg"
+            >
+              ⚙️ Settings
+            </button>
+            <button
+              onClick={endGame}
+              className="px-6 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors shadow-lg"
+            >
+              🛑 End Game
+            </button>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-8 max-w-md w-full shadow-2xl border border-gray-700">
+              <h2 className="text-3xl font-bold text-white mb-6">⚙️ Settings</h2>
+              
+              {/* Difficulty Setting */}
+              <div className="mb-6">
+                <label className="block text-gray-300 text-sm font-semibold mb-3">
+                  AI Difficulty
+                </label>
+                <div className="space-y-2">
+                  {(['easy', 'medium', 'hard'] as Difficulty[]).map((diff) => (
+                    <button
+                      key={diff}
+                      onClick={() => setDifficulty(diff)}
+                      className={`w-full px-4 py-3 rounded-lg font-semibold transition-all ${
+                        difficulty === diff
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white scale-105'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      {diff.charAt(0).toUpperCase() + diff.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sound Setting */}
+              <div className="mb-6">
+                <label className="block text-gray-300 text-sm font-semibold mb-3">
+                  Sound Effects
+                </label>
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`w-full px-4 py-3 rounded-lg font-semibold transition-all ${
+                    soundEnabled
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  {soundEnabled ? '🔊 Sound On' : '🔇 Sound Off'}
+                </button>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={closeSettings}
+                className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold hover:scale-105 transition-transform"
+              >
+                Close Settings
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+
+
+
+
 
 
 
