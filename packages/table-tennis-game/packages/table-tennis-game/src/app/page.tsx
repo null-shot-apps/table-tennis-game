@@ -25,11 +25,16 @@ interface Ball {
 
 export default function TableTennisGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [gameState, setGameState] = useState<GameState>('menu');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [playerScore, setPlayerScore] = useState(0);
   const [aiScore, setAiScore] = useState(0);
   const [winner, setWinner] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const gameRef = useRef({
     player: { x: 50, y: 200, width: 15, height: 80, speed: 8 } as Paddle,
@@ -342,6 +347,14 @@ export default function TableTennisGame() {
     setWinner(null);
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4">
       <div className="max-w-4xl w-full">
@@ -476,6 +489,8 @@ export default function TableTennisGame() {
     </div>
   );
 }
+
+
 
 
 
