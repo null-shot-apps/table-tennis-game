@@ -20,6 +20,7 @@ interface Ball {
   velocityX: number;
   velocityY: number;
   speed: number;
+  id: number;
 }
 
 export default function TableTennisGame() {
@@ -33,7 +34,10 @@ export default function TableTennisGame() {
   const gameRef = useRef({
     player: { x: 50, y: 200, width: 15, height: 80, speed: 8 } as Paddle,
     ai: { x: 735, y: 200, width: 15, height: 80, speed: 6 } as Paddle,
-    ball: { x: 400, y: 250, radius: 8, velocityX: 5, velocityY: 3, speed: 5 } as Ball,
+    balls: [
+      { x: 400, y: 200, radius: 8, velocityX: 5, velocityY: -3, speed: 5, id: 1 } as Ball,
+      { x: 400, y: 300, radius: 8, velocityX: 5, velocityY: 3, speed: 5, id: 2 } as Ball,
+    ],
     keys: { up: false, down: false },
     serveTurn: 'player' as 'player' | 'ai',
     serveCount: 0,
@@ -99,10 +103,7 @@ export default function TableTennisGame() {
     // Game loop
     let animationId: number;
 
-    const resetBall = (scorer: 'player' | 'ai') => {
-      game.ball.x = 400;
-      game.ball.y = 250;
-      game.ball.speed = 5;
+    const resetBalls = (scorer: 'player' | 'ai') => {
       game.rallyHits = 0;
 
       // Determine who serves
@@ -111,13 +112,25 @@ export default function TableTennisGame() {
         game.serveTurn = game.serveTurn === 'player' ? 'ai' : 'player';
       }
 
+      // Reset both balls with different angles
+      game.balls[0].x = 400;
+      game.balls[0].y = 200;
+      game.balls[0].speed = 5;
+      game.balls[0].velocityY = -3;
+      
+      game.balls[1].x = 400;
+      game.balls[1].y = 300;
+      game.balls[1].speed = 5;
+      game.balls[1].velocityY = 3;
+
       // Serve direction
       if (game.serveTurn === 'player') {
-        game.ball.velocityX = 5;
+        game.balls[0].velocityX = 5;
+        game.balls[1].velocityX = 5;
       } else {
-        game.ball.velocityX = -5;
+        game.balls[0].velocityX = -5;
+        game.balls[1].velocityX = -5;
       }
-      game.ball.velocityY = (Math.random() - 0.5) * 4;
     };
 
     const updateGame = () => {
@@ -131,12 +144,19 @@ export default function TableTennisGame() {
         game.player.y += game.player.speed;
       }
 
-      // AI movement with difficulty
+      // AI movement with difficulty - track closest ball
       const aiSpeed = difficulty === 'easy' ? 4 : difficulty === 'medium' ? 6 : 8;
       const aiReaction = difficulty === 'easy' ? 0.6 : difficulty === 'medium' ? 0.75 : 0.9;
       const aiError = difficulty === 'easy' ? 40 : difficulty === 'medium' ? 20 : 10;
 
-      const targetY = game.ball.y - game.ai.height / 2 + (Math.random() - 0.5) * aiError;
+      // Find closest ball to AI
+      const closestBall = game.balls.reduce((closest, ball) => {
+        const distToCurrent = Math.abs(ball.x - game.ai.x);
+        const distToClosest = Math.abs(closest.x - game.ai.x);
+        return distToCurrent < distToClosest ? ball : closest;
+      });
+
+      const targetY = closestBall.y - game.ai.height / 2 + (Math.random() - 0.5) * aiError;
       
       if (Math.random() < aiReaction) {
         if (game.ai.y < targetY - 10) {
@@ -150,65 +170,81 @@ export default function TableTennisGame() {
       if (game.ai.y < 0) game.ai.y = 0;
       if (game.ai.y > 500 - game.ai.height) game.ai.y = 500 - game.ai.height;
 
-      // Move ball
-      game.ball.x += game.ball.velocityX;
-      game.ball.y += game.ball.velocityY;
+      // Move and update all balls
+      let anyBallScored = false;
+      let scorer: 'player' | 'ai' | null = null;
 
-      // Ball collision with top/bottom
-      if (game.ball.y - game.ball.radius < 0 || game.ball.y + game.ball.radius > 500) {
-        game.ball.velocityY = -game.ball.velocityY;
-      }
+      game.balls.forEach((ball) => {
+        // Move ball
+        ball.x += ball.velocityX;
+        ball.y += ball.velocityY;
 
-      // Ball collision with player paddle
-      if (
-        game.ball.x - game.ball.radius < game.player.x + game.player.width &&
-        game.ball.x + game.ball.radius > game.player.x &&
-        game.ball.y > game.player.y &&
-        game.ball.y < game.player.y + game.player.height
-      ) {
-        const hitPos = (game.ball.y - game.player.y) / game.player.height - 0.5;
-        game.ball.velocityY = hitPos * 10;
-        game.ball.velocityX = Math.abs(game.ball.velocityX);
-        game.rallyHits++;
-        
-        // Increase speed during rallies
-        if (game.rallyHits % 4 === 0) {
-          game.ball.speed += 0.5;
-          game.ball.velocityX = (game.ball.velocityX / Math.abs(game.ball.velocityX)) * game.ball.speed;
+        // Ball collision with top/bottom
+        if (ball.y - ball.radius < 0 || ball.y + ball.radius > 500) {
+          ball.velocityY = -ball.velocityY;
         }
-      }
 
-      // Ball collision with AI paddle
-      if (
-        game.ball.x + game.ball.radius > game.ai.x &&
-        game.ball.x - game.ball.radius < game.ai.x + game.ai.width &&
-        game.ball.y > game.ai.y &&
-        game.ball.y < game.ai.y + game.ai.height
-      ) {
-        const hitPos = (game.ball.y - game.ai.y) / game.ai.height - 0.5;
-        game.ball.velocityY = hitPos * 10;
-        game.ball.velocityX = -Math.abs(game.ball.velocityX);
-        game.rallyHits++;
-        
-        if (game.rallyHits % 4 === 0) {
-          game.ball.speed += 0.5;
-          game.ball.velocityX = (game.ball.velocityX / Math.abs(game.ball.velocityX)) * game.ball.speed;
+        // Ball collision with player paddle
+        if (
+          ball.x - ball.radius < game.player.x + game.player.width &&
+          ball.x + ball.radius > game.player.x &&
+          ball.y > game.player.y &&
+          ball.y < game.player.y + game.player.height
+        ) {
+          const hitPos = (ball.y - game.player.y) / game.player.height - 0.5;
+          ball.velocityY = hitPos * 10;
+          ball.velocityX = Math.abs(ball.velocityX);
+          game.rallyHits++;
+          
+          // Increase speed during rallies
+          if (game.rallyHits % 4 === 0) {
+            ball.speed += 0.5;
+            ball.velocityX = (ball.velocityX / Math.abs(ball.velocityX)) * ball.speed;
+          }
         }
-      }
 
-      // Scoring
-      if (game.ball.x - game.ball.radius < 0) {
-        const newScore = aiScore + 1;
-        setAiScore(newScore);
-        checkWinner(playerScore, newScore);
-        resetBall('ai');
-      }
+        // Ball collision with AI paddle
+        if (
+          ball.x + ball.radius > game.ai.x &&
+          ball.x - ball.radius < game.ai.x + game.ai.width &&
+          ball.y > game.ai.y &&
+          ball.y < game.ai.y + game.ai.height
+        ) {
+          const hitPos = (ball.y - game.ai.y) / game.ai.height - 0.5;
+          ball.velocityY = hitPos * 10;
+          ball.velocityX = -Math.abs(ball.velocityX);
+          game.rallyHits++;
+          
+          if (game.rallyHits % 4 === 0) {
+            ball.speed += 0.5;
+            ball.velocityX = (ball.velocityX / Math.abs(ball.velocityX)) * ball.speed;
+          }
+        }
 
-      if (game.ball.x + game.ball.radius > 800) {
-        const newScore = playerScore + 1;
-        setPlayerScore(newScore);
-        checkWinner(newScore, aiScore);
-        resetBall('player');
+        // Scoring - if any ball goes out
+        if (ball.x - ball.radius < 0) {
+          anyBallScored = true;
+          scorer = 'ai';
+        }
+
+        if (ball.x + ball.radius > 800) {
+          anyBallScored = true;
+          scorer = 'player';
+        }
+      });
+
+      // Update score if any ball scored
+      if (anyBallScored && scorer) {
+        if (scorer === 'ai') {
+          const newScore = aiScore + 1;
+          setAiScore(newScore);
+          checkWinner(playerScore, newScore);
+        } else {
+          const newScore = playerScore + 1;
+          setPlayerScore(newScore);
+          checkWinner(newScore, aiScore);
+        }
+        resetBalls(scorer);
       }
     };
 
@@ -255,11 +291,13 @@ export default function TableTennisGame() {
       ctx.fillStyle = '#ff006e';
       ctx.fillRect(game.ai.x, game.ai.y, game.ai.width, game.ai.height);
 
-      // Draw ball
-      ctx.fillStyle = '#ffbe0b';
-      ctx.beginPath();
-      ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw balls with different colors
+      game.balls.forEach((ball, index) => {
+        ctx.fillStyle = index === 0 ? '#ffbe0b' : '#00ff88';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
     };
 
     const gameLoop = () => {
@@ -438,4 +476,10 @@ export default function TableTennisGame() {
     </div>
   );
 }
+
+
+
+
+
+
 
